@@ -30,15 +30,6 @@ bot.remove_command('help')
 async def on_ready():
     print(f'{bot.user.name} has connected to Discord!')
 
-@bot.command(name='price', help="Responds with the price of the awesome CHAIN token. Type '!price eur' for the price in €. Type '!list' to show supported currencies.")
-async def price(ctx, currency='usd'):
-    currency = currency.lower()
-    if currency in currency_symbol_dict:
-        response = cg.get_token_price(id='ethereum', contract_addresses=CONTRACT, vs_currencies=currency)
-        await ctx.send("CHAIN Price is " + currency_symbol_dict[currency] + str(response[CONTRACT][currency]))
-    else:
-        await ctx.send("Your selected currency is not supported. Type '!list' to show supported currencies.")
-
 @bot.command(name='announcements', help="Announcement Channel :loudspeaker:")
 async def announcements(ctx):
         await ctx.send("<#740007189560688722>")
@@ -138,6 +129,15 @@ async def payouts(ctx):
         ":cut_of_meat: $0.18 would be sent back to the staking pool"
     )
 
+@bot.command(name='price', help="Responds with the price of the awesome CHAIN token. Type '!price eur' for the price in €. Type '!list' to show supported currencies.")
+async def price(ctx, currency='usd'):
+    currency = currency.lower()
+    if currency in currency_symbol_dict:
+        response = cg.get_token_price(id='ethereum', contract_addresses=CONTRACT, vs_currencies=currency)
+        await ctx.send("CHAIN Price is " + currency_symbol_dict[currency] + str(response[CONTRACT][currency]))
+    else:
+        await ctx.send("Your selected currency is not supported. Type '!list' to show supported currencies.")
+
 @bot.command(name='project', help='Chain Games Project Brief Overview :video_game:')
 async def project(ctx):
     await ctx.send(
@@ -183,6 +183,54 @@ async def rank(ctx):
     response = CoinGeckoAPI().get_coin_info_from_contract_address_by_id(id='ethereum', contract_address=CONTRACT)
     await ctx.send('#' + str(response['market_cap_rank']))
 
+@bot.command(name='rate', help="Rate of CHAIN (default=usd) :chart_with_upwards_trend:")
+async def rate(ctx, currency='usd'):
+    currency = currency.lower()
+    if currency in currency_symbol_dict:
+        response = cg.get_token_price(id='ethereum', contract_addresses=CONTRACT, vs_currencies=currency)
+        price = response[CONTRACT][currency]
+        if price > 0:
+            rate = 1 / price
+            if rate > 1:
+                rate = int(rate * 100)
+                rate = rate / 100
+            await ctx.send("1 " + currency_symbol_dict[currency] + " = " + str(rate) + " CHAIN")
+    else:
+        await ctx.send("Your selected currency is not supported. Type '!list' to show supported currencies.")
+
+@bot.command(name='marketcap', help='Market cap of our token in :dollar:')
+async def marketcap(ctx):
+    response = CoinGeckoAPI().get_coin_info_from_contract_address_by_id(id='ethereum', contract_address=CONTRACT)
+    await ctx.send('$' + str(response['market_data']['market_cap']['usd']))
+
+@bot.command(name='high_24h', help='Highest price in the last 24h')
+async def high_24h(ctx, currency='usd'):
+    currency = currency.lower()
+    if currency in currency_symbol_dict:
+        response = CoinGeckoAPI().get_coin_info_from_contract_address_by_id(id='ethereum', contract_address=CONTRACT)
+        await ctx.send(currency_symbol_dict[currency] + str(response['market_data']['high_24h'][currency]))
+    else:
+        await ctx.send("Your selected currency is not supported. Type '!list' to show supported currencies.")
+
+@bot.command(name='low_24h', help='Lowest price in the last 24h')
+async def low_24h(ctx, currency='usd'):
+    currency = currency.lower()
+    if currency in currency_symbol_dict:
+        response = CoinGeckoAPI().get_coin_info_from_contract_address_by_id(id='ethereum', contract_address=CONTRACT)
+        await ctx.send(currency_symbol_dict[currency] + str(response['market_data']['low_24h'][currency]))
+    else:
+        await ctx.send("Your selected currency is not supported. Type '!list' to show supported currencies.")
+
+@bot.command(name='low/high_24h', help='Lowest and highest price in the last 24h')
+async def low_high_24h(ctx, currency='usd'):
+    currency = currency.lower()
+    if currency in currency_symbol_dict:
+        response = CoinGeckoAPI().get_coin_info_from_contract_address_by_id(id='ethereum', contract_address=CONTRACT)
+        await ctx.send(currency_symbol_dict[currency] + str(response['market_data']['low_24h'][currency]) + " / " + currency_symbol_dict[currency] + str(response['market_data']['high_24h'][currency]))
+    else:
+        await ctx.send("Your selected currency is not supported. Type '!list' to show supported currencies.")
+
+
 @bot.command(name='unistats', help='Uniswap stats :chart_with_upwards_trend:')
 async def unistats(ctx):
     await ctx.send(
@@ -219,14 +267,19 @@ async def help(ctx):
     embed.add_field(name='!coingecko', value="CoinGecko Listing :lizard:", inline=False)
     embed.add_field(name='!downloads', value="Downloads Links to Super Crypto Kart :race_car:", inline=False)
     embed.add_field(name='!etherscan', value="Etherscan Address :link:", inline=False)
-    embed.add_field(name='!list', value="Shows the supported currencies of the '!price' command", inline=False)
     embed.add_field(name='!help', value="Shows this help :ambulance:", inline=False)
+    embed.add_field(name='!high_24h', value="Highest price in the last 24h :chart_with_upwards_trend:", inline=False)
+    embed.add_field(name='!list', value="Shows the supported currencies of the '!price' command", inline=False)
+    embed.add_field(name='!low_24h', value="Lowest price in the last 24h :chart_with_upwards_trend:", inline=False)
+    embed.add_field(name='!low/high_24h', value="Lowest and highest price in the last 24h :chart_with_upwards_trend:", inline=False)
+    embed.add_field(name='!marketcap', value="Market cap of our token in :dollar:", inline=False)
     embed.add_field(name='!otc', value="Information about the OTC Pre-Sale, KYC, etc :shopping_cart:", inline=False)
     embed.add_field(name='!payouts', value="Example of how lobbies and payouts work :money_mouth:", inline=False)
     embed.add_field(name='!project', value="Chain Games Project Brief Overview :video_game:", inline=False)
     embed.add_field(name='!price', value= "Price of our Token in USD :money_with_wings:", inline=False)
     embed.add_field(name='!price eur', value="Price in EUR. You can choose any currency from '!list' :money_with_wings:", inline=False)
     embed.add_field(name='!rank', value="Market Cap Rank :first_place:", inline=False)
+    embed.add_field(name='!rate', value="Rate of CHAIN (default=usd) :chart_with_upwards_trend:", inline=False)
     embed.add_field(name='!social', value="Chain Games Social Media Channels(twitter/discord/telegram/facebook) :man::woman:", inline=False)
     embed.add_field(name='!staking', value="Staking Rewards Info :cut_of_meat:", inline=False)
     embed.add_field(name='!total', value="Total Supply :moneybag:", inline=False)
