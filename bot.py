@@ -1,13 +1,17 @@
 # bot.py
 import discord
 import os
+import time
 
-from discord.ext import commands
+from etherscan.accounts import Account
+from discord.ext import commands, tasks
 from dotenv import load_dotenv
 from pycoingecko import CoinGeckoAPI
 cg = CoinGeckoAPI()
 
 load_dotenv()
+
+############### DISCORD ###############
 TOKEN = os.getenv('DISCORD_TOKEN')
 COINGECKO = 'https://www.coingecko.com/en/coins/chain-games'
 CONTRACT = '0xc4c2614e694cf534d407ee49f8e44d125e4681c4'
@@ -15,6 +19,17 @@ WEBSITE = 'https://chaingames.io/ '
 ETHERSCAN = 'https://etherscan.io/token/0xC4C2614E694cF534D407Ee49F8E44D125E4681c4'
 UNISWAP = 'https://app.uniswap.org/#/swap?inputCurrency=0xC4C2614E694cF534D407Ee49F8E44D125E4681c4'
 WHITEPAPER = 'https://chaingames.io/wp-content/uploads/2020/08/Chain_Games-White-Paper-Aug-2020v4.pdf'
+
+
+
+############### ETHERSCAN ###############
+KEY = "DCRBPESFCAXRFJRWQ1YMVQHHXWF5T2CFFR"
+ADDRESS = '0x33906431e44553411b8668543ffc20aaa24f75f9'
+ETH_BOUNDARY = 0.1
+
+api = Account(address=ADDRESS, api_key=KEY) # api
+
+hash = "" # last trx hash
 
 currency_symbol_dict = {'usd': '$', 'btc': '₿', 'eth': 'Ξ', 'ltc': 'Ł', 'eur': '€', 'jpy': '¥', 'rub': '₽',
                         'aed': 'د.إ', 'bdt': '৳', 'bhd': 'BD', 'cny': '¥', 'czk': 'Kč', 'dkk': 'kr.', 'gbp': '£',
@@ -28,6 +43,7 @@ bot.remove_command('help')
 
 @bot.event
 async def on_ready():
+    etherscan_poll.start()
     print(f'{bot.user.name} has connected to Discord!')
 
 @bot.command(name='announcements', help="Announcement Channel :loudspeaker:")
@@ -290,4 +306,57 @@ async def help(ctx):
 
     await author.send(embed=embed)
 
+@tasks.loop(seconds=1)
+async def etherscan_poll():
+    global hash
+    global api
+
+    try:
+        transactions = api.get_transaction_page(page=1, offset=2, sort='desc', erc20=True)
+        chains = 0
+        eth = 0
+        buy = False
+        chainId = 0
+        if transactions[0]['hash'] == transactions[1]['hash'] and transactions[0]['hash'] != hash:
+            hash = transactions[0]['hash']
+            if transactions[1]['tokenName'] == 'Chain Games':
+                chainId = 1
+            if transactions[chainId]['from'] == ADDRESS:
+                buy = True
+            eth = int(transactions[abs(chainId - 1)]['value']) / 1000000000000000000
+            chains = int(transactions[chainId]['value']) / 1000000000000000000
+            if eth >= ETH_BOUNDARY:
+                embed = None
+                if buy:
+                    embed = discord.Embed(
+                        title=':chainlogo: CHAIN Uniswap V2 Tracker :unicorn:',
+                        colour=discord.Colour.green()
+                    )
+                    embed.add_field(name='Swap ETH for CHAIN :dollar:', value=str(round(eth, 2)) + " :ethereumicon: => " + str(round(chains, 2)) + " :chainlogo:", inline=False)
+                    embed.add_field(name='Address:', value=transactions[abs(chainId - 1)]['from'], inline=False)
+
+                else:
+                    embed = discord.Embed(
+                        title=':chainlogo: CHAIN Uniswap V2 Tracker :unicorn:',
+                        colour=discord.Colour.red()
+                    )
+                    embed.add_field(name='Swap CHAIN for ETH', value=str(round(chains, 2)) + " :chainlogo: => " + str(round(eth, 2)) + " :ethereumicon:", inline=False)
+                    embed.add_field(name='Address:', value=transactions[chainId]['from'], inline=False)
+
+                #embed.add_field(name='TxHash:', value=hash, inline=False)
+                embed.add_field(name='Link to transaction:', value="[View Transaction](https://etherscan.io/tx/" + hash + ")", inline=False)
+                embed.set_footer(text='Made by mukki')
+                #embed.set_image(url='https://cdn.discordapp.com/avatars/471304965990776832/5df9624fe375b4252618da61e8975e05.png?size=128')
+                #embed.set_thumbnail(url='https://cdn.discordapp.com/avatars/471304965990776832/5df9624fe375b4252618da61e8975e05.png?size=128')
+
+                channel = bot.get_channel(748860624666230806)
+                await channel.send(embed=embed)
+    except:
+        print("No internet connection.")
+        time.sleep(10)
+        api = Account(address=ADDRESS, api_key=KEY)
+
 bot.run(TOKEN)
+
+
+
